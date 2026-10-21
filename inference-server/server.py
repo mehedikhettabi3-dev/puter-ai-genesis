@@ -163,6 +163,7 @@ def create_app(engine: BaseEngine | None = None, output_dir: str | Path | None =
     store = JobStore()
     outputs = Path(output_dir or ROOT / "outputs")
     outputs.mkdir(parents=True, exist_ok=True)
+    outputs.mkdir(parents=True, exist_ok=True)
     cancel_events: dict[str, threading.Event] = {}
     executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="genesis")
 
@@ -365,7 +366,7 @@ def main() -> None:
     hardware = engine.hardware()
     print(f"[genesis] backend={hardware.get('backend')} device={hardware.get('device')}")
     if engine.requires_gpu and hardware.get("backend") != "cuda":
-        print("[genesis] WARNING: no CUDA GPU — realtime generation will be refused; use --engine stub for dev mode.")
+        print("[genesis] WARNING: no CUDA GPU Ã¢â‚¬â€ realtime generation will be refused; use --engine stub for dev mode.")
 
     import uvicorn
 
