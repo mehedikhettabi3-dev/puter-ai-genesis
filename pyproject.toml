@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "puter-ai-genesis"
+version = "0.1.0"
+description = "Everything-Genesis: self-hosted open-weights video/image generation engine (zero cloud APIs)"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+
+[tool.setuptools]
+package-dir = { "" = "core-engine" }
+packages = ["genesis"]
+
+[project.optional-dependencies]
+gpu = [
+  "torch>=2.1",
+  "diffusers>=0.34",
+  "transformers>=4.44",
+  "accelerate>=0.33",
+  "peft>=0.11",
+  "safetensors",
+]
+server = ["uvicorn[standard]>=0.30"]
+dev = ["pytest>=8"]

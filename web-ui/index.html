@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Everything-Genesis Studio</title>
+<style>
+  :root { color-scheme: dark; --bg:#0b0e14; --panel:#131824; --line:#232b3b; --text:#e8ecf4; --dim:#8b96ab; --accent:#5b8cff; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", system-ui, sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:14px 22px; border-bottom:1px solid var(--line); display:flex; gap:14px; align-items:baseline; }
+  header h1 { font-size:18px; margin:0; letter-spacing:.4px; }
+  header span { color:var(--dim); font-size:12.5px; }
+  main { display:grid; grid-template-columns: 360px 1fr; gap:16px; padding:16px 22px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  label { display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.8px; color:var(--dim); margin:10px 0 5px; }
+  textarea, input, select { width:100%; background:#0e1320; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:9px 10px; font:inherit; font-size:13.5px; }
+  textarea { min-height:84px; resize:vertical; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  button { width:100%; margin-top:14px; padding:11px 0; border:0; border-radius:9px; font:inherit; font-weight:600; cursor:pointer; background:var(--accent); color:#071022; }
+  button:disabled { opacity:.45; cursor:default; }
+  #viewer { min-height:360px; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; }
+  #viewer video, #viewer img { max-width:100%; max-height:520px; border-radius:10px; }
+  #viewer .empty { color:var(--dim); font-size:13px; }
+  #progressWrap { width:100%; display:none; }
+  #progressBar { height:7px; background:#0e1320; border-radius:6px; overflow:hidden; }
+  #progressFill { height:100%; width:0%; background:var(--accent); transition:width .25s; }
+  #progressText { font-size:12px; color:var(--dim); margin-top:6px; }
+  .warn { color:#ffb74d; font-size:12px; margin-top:10px; }
+  .lic { color:var(--dim); font-size:11.5px; margin-top:4px; }
+  #status { font-size:12px; color:var(--dim); }
+  footer { padding:10px 22px; color:var(--dim); font-size:11.5px; border-top:1px solid var(--line); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Everything-Genesis Studio</h1>
+  <span>open weights · self-hosted · no cloud APIs</span>
+  <span id="status"></span>
+</header>
+<main>
+  <section class="panel">
+    <label>Kind</label>
+    <div class="row">
+      <select id="kind">
+        <option value="video">Video</option>
+        <option value="image">Image</option>
+      </select>
+      <select id="model"></select>
+    </div>
+    <label>Prompt</label>
+    <textarea id="prompt" placeholder="a neon-lit medina alley at night, camera dolly forward, rain reflections…"></textarea>
+    <label>Style</label>
+    <select id="style">
+      <option value="">none</option>
+      <option value="cinematic">cinematic</option>
+      <option value="anime">anime</option>
+      <option value="3d">3d render</option>
+      <option value="noir">noir</option>
+      <option value="documentary">documentary</option>
+    </select>
+    <label>Negative prompt</label>
+    <input id="negative" placeholder="watermark, blurry, low quality">
+    <div class="row">
+      <div><label>Seed</label><input id="seed" placeholder="random"></div>
+      <div><label>Steps</label><input id="steps" placeholder="auto"></div>
+    </div>
+    <button id="generate">Generate</button>
+    <div id="gpuWarn" class="warn"></div>
+    <div class="lic" id="licenseNote"></div>
+  </section>
+  <section class="panel">
+    <div id="viewer">
+      <div class="empty">Result appears here</div>
+      <div id="progressWrap">
+        <div id="progressBar"><div id="progressFill"></div></div>
+        <div id="progressText"></div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>Licences travel with usage: check the model licence before commercial use. Apache-2.0 models are safe.</footer>
+<script>
+const $ = s => document.querySelector(s);
+const state = { models: [], busy: false };
+
+async function boot() {
+  const health = await (await fetch('/api/health')).json();
+  const hw = health.hardware || {};
+  $('#status').textContent = `${health.engine} · ${hw.backend || 'unknown'}`;
+  if (!health.requires_gpu) {
+    $('#gpuWarn').textContent = 'Stub engine active (CPU dev mode). Start without --engine stub on a CUDA machine to generate real media.';
+  } else if (hw.backend !== 'cuda') {
+    $('#gpuWarn').textContent = `No CUDA GPU detected — generation will be refused. Hardware: ${hw.reason || JSON.stringify(hw)}`;
+  }
+  state.models = (await (await fetch('/api/models')).json()).models;
+  fillModels();
+}
+function fillModels() {
+  const kind = $('#kind').value;
+  const list = state.models.filter(m => m.kind === kind);
+  $('#model').innerHTML = list.map(m =>
+    `<option value="${m.id}" ${m.commercial ? 'data-commercial="yes"' : ''}>${m.id} · ~${m.vram_gb}GB · ${m.license}</option>`
+  ).join('');
+  onModelChange();
+}
+function onModelChange() {
+  const m = state.models.find(x => x.id === $('#model').value);
+  $('#licenseNote').textContent = m ? `License: ${m.license} — commercial: ${m.commercial ? 'yes' : 'no'}` : '';
+}
+$('#kind').addEventListener('change', fillModels);
+$('#model').addEventListener('change', onModelChange);
+
+$('#generate').addEventListener('click', async () => {
+  if (state.busy) return;
+  const body = {
+    kind: $('#kind').value,
+    prompt: $('#prompt').value.trim(),
+    model: $('#model').value,
+    negative_prompt: $('#negative').value,
+    style: $('#style').value || null,
+  };
+  const seed = parseInt($('#seed').value, 10); if (!isNaN(seed)) body.seed = seed;
+  const steps = parseInt($('#steps').value, 10); if (!isNaN(steps)) body.steps = steps;
+  if (!body.prompt) { alert('Prompt is empty'); return; }
+  const rid = $(Math.random);
+  const res = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) { $('#gpuWarn').textContent = data.error + (data.hint ? ' — ' + data.hint : ''); return; }
+  watch(data.job_id);
+});
+
+function showProgress(on, text) {
+  $('#progressWrap').style.display = on ? 'block' : 'none';
+  $('#progressText').textContent = text || '';
+  $('#generate').disabled = on;
+  state.busy = on;
+  if (!on) $('#targetText') && null;
+}
+function watch(jobId) {
+  showProgress(true, 'queued…');
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/api/ws/${jobId}`);
+  ws.onmessage = ev => {
+    const job = JSON.parse(ev.data);
+    $('#progressFill').style.width = Math.round((job.progress || 0) * 100) + '%';
+    $('#progressText').textContent = `${job.status} · ${Math.round((job.progress || 0) * 100)}% · ${job.message || ''}`;
+    if (job.status === 'completed') {
+      showProgress(false);
+      const url = job.result && job.result.url;
+      if (job.kind === 'video' && url) {
+        $('#viewer').innerHTML = `<video src="${url}" controls autoplay loop></video>`;
+      } else if (url) {
+        $('#viewer').innerHTML = `<img src="${url}" alt="result">`;
+      } else {
+        $('#viewer').innerHTML = `<div class="empty">${(job.result && job.result.message) || 'no media (stub mode)'}</div>`;
+      }
+      $('#progressWrap').style.display = 'none';
+    }
+    if (job.status === 'failed' || job.status === 'cancelled') {
+      showProgress(false);
+      $('#progressText').textContent = job.status + (job.error ? ' · ' + job.error : '');
+    }
+  };
+  ws.onerror = () => showProgress(false, 'connection lost');
+}
+boot();
+</script>
+</body>
+</html>

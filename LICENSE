@@ -1,0 +1,22 @@
+Apache License 2.0 (repository code) with third-party model licences shipped as metadata
+
+Copyright 2026 Everything-Genesis contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+--- Third-party model licences -------------------------------------------------
+Model weights downloaded by this engine keep their own licences (see
+MODEL_REGISTRY entries): e.g. Apache-2.0 (Wan 1.3B/2B CogVideoX), CreativeML OpenRAIL-M
+(SD1.5), OpenRAIL++-M (SDXL), Stability AI Community License (SD3.5), FLUX.1-dev
+Non-Commercial, LTXV Open Weights License, Tencent Hunyuan Community License.
+Check `genesis/config.py` before commercial use.
